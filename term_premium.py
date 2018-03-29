@@ -73,14 +73,14 @@ def calc_term_premium(tenor_lst, tenor_tp_lst, param_dict,
 
     for idx, (date, row) in enumerate(in_sample_df.iterrows()):
         x_t = X[idx, :]
-        term_prem_dict = {t: model_obj.get_term_premium(tenor_long=t, n_short=12 * t, x_t=x_t)
+        term_prem_dict = {t: model_obj.get_term_premium(tenor_long=t, n_short=4 * t, x_t=x_t)
                           for t in tenor_tp_lst}
         for t in tenor_tp_lst:
-            in_sample_df.loc[date, 'TP_{}Y_1M'.format(t)] = term_prem_dict.get(t)
+            in_sample_df.loc[date, 'TP_{}Y'.format(t)] = term_prem_dict.get(t)
 
-    in_sample_df[['TP_{}Y_1M'.format(t) for t in tenor_tp_lst]].plot()
-    plt.savefig('term_perm_IS_1m.pdf')
-    in_sample_df[['TP_{}Y_1M'.format(t) for t in tenor_tp_lst]].to_csv('term_prem_IS_1m.csv')
+    in_sample_df[['TP_{}Y'.format(t) for t in tenor_tp_lst]].plot()
+    plt.savefig('term_perm_IS.pdf')
+    in_sample_df[['TP_{}Y'.format(t) for t in tenor_tp_lst]].to_csv('term_prem_IS.csv')
 
     out_sample_df = dd.fetch_yld_data(tenor_lst, os_start, os_end)
 
@@ -92,14 +92,14 @@ def calc_term_premium(tenor_lst, tenor_tp_lst, param_dict,
 
     for idx, (date, row) in enumerate(out_sample_df.iterrows()):
         x_t = X_os[idx, :]
-        term_prem_dict = {t: model_obj.get_term_premium(tenor_long=t, n_short=12 * t, x_t=x_t)
+        term_prem_dict = {t: model_obj.get_term_premium(tenor_long=t, n_short=4 * t, x_t=x_t)
                           for t in tenor_tp_lst}
         for t in tenor_tp_lst:
-            out_sample_df.loc[date, 'TP_{}Y_1M'.format(t)] = term_prem_dict.get(t)
+            out_sample_df.loc[date, 'TP_{}Y'.format(t)] = term_prem_dict.get(t)
 
-    out_sample_df[['TP_{}Y_1M'.format(t) for t in tenor_tp_lst]].plot()
-    plt.savefig('term_perm_OS_1m.pdf')
-    out_sample_df[['TP_{}Y_1M'.format(t) for t in tenor_tp_lst]].to_csv('term_prem_OS_1m.csv')
+    out_sample_df[['TP_{}Y'.format(t) for t in tenor_tp_lst]].plot()
+    plt.savefig('term_perm_OS.pdf')
+    out_sample_df[['TP_{}Y'.format(t) for t in tenor_tp_lst]].to_csv('term_prem_OS.csv')
 
 
 if __name__ == '__main__':
@@ -107,6 +107,6 @@ if __name__ == '__main__':
     tenor_tp_lst = [1, 2, 5, 10]
 
     os_start = dt.date(2004, 1, 1)
-    os_end = dt.date.today()
+    os_end = dt.date(2018, 3, 20)  # dt.date.today()
 
     calc_term_premium(tenor_lst, tenor_tp_lst, S1990, os_start, os_end)

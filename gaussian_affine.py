@@ -18,12 +18,12 @@ class GaussianAffine(ts.TermStructure):
         lambda_x = np.matmul(sigma, lambda_b)
 
         kappa_rn = kappa + lambda_x
-        theta_rn = np.matmul(np.linalg.inv(kappa_rn), np.matmul(kappa, theta) - lambda_0)
+        theta_rn = np.dot(np.linalg.pinv(kappa_rn), np.dot(kappa, theta) - lambda_0)
 
         keig_rn, Xinv_rn = np.linalg.eig(kappa_rn)
-        X_rn = np.linalg.inv(Xinv_rn)
-        Xsig_rn = np.matmul(X_rn, sigma)
-        Smat_rn = np.matmul(Xsig_rn, np.transpose(Xsig_rn))
+        X_rn = np.linalg.pinv(Xinv_rn)
+        Xsig_rn = np.dot(X_rn, sigma)
+        Smat_rn = np.dot(Xsig_rn, Xsig_rn.T)
 
         self.params.setdefault('lambda_b', lambda_b)
         self.params.setdefault('kappa_rn', kappa_rn)
@@ -47,12 +47,12 @@ class GaussianAffine(ts.TermStructure):
 
     def get_bt(self, tenor):
 
-        b0 = self.params['b0']
-        kappa_rn_T = np.transpose(self.params['kappa_rn'])
-        b_t = np.matmul(np.identity(len(b0)) - scipylin.expm(-kappa_rn_T * tenor),
-                        np.matmul(np.linalg.inv(kappa_rn_T * tenor), b0))
+        b0 = self.params.b0
+        kappa_rn_T = self.params.kappa_rn.T
+        b_t = np.dot(np.identity(len(b0)) - scipylin.expm(-kappa_rn_T * tenor),
+                     np.dot(np.linalg.pinv(kappa_rn_T * tenor), b0))
 
-        return b_t
+        return b_t.real
 
     def get_at(self, tenor):
 
@@ -65,7 +65,7 @@ class GaussianAffine(ts.TermStructure):
         kernel = lambda k, t: (1. - np.exp(-k * t)) / (k * t)
 
         coef = np.array([[1. - kernel(keig_rn[i], tenor) - kernel(keig_rn[j], tenor) +
-                          kernel(keig_rn[i] + keig_rn[j], tenor) for i in range(nrow)] for j in range(ncol)])
+                          kernel(keig_rn[i] + keig_rn[j], tenor) for j in range(ncol)] for i in range(nrow)])
 
         Xi_t = np.multiply(Smat_rn, coef)
 
@@ -75,13 +75,13 @@ class GaussianAffine(ts.TermStructure):
         kappa_rn = self.params.kappa_rn
         X_rn = self.params.X_rn
 
-        bkX = np.matmul(b0, np.matmul(np.linalg.inv(kappa_rn), np.linalg.inv(X_rn)))
+        bkX = np.dot(b0, np.dot(np.linalg.pinv(kappa_rn), np.linalg.pinv(X_rn)))
 
-        tr = np.dot(bkX, np.matmul(Xi_t, bkX))
+        tr = np.dot(bkX, np.dot(Xi_t, bkX))
 
         a_t = a0 + np.dot(b0 - self.get_bt(tenor), theta_rn) - .5 * tr
 
-        return a_t
+        return a_t.real
 
     def get_expected_short(self, fwd_time, **kwargs):
 
@@ -96,7 +96,7 @@ class GaussianAffine(ts.TermStructure):
 
         exp_kappa_t = scipylin.expm(-kappa * fwd_time)
 
-        z_t = np.matmul(exp_kappa_t, x_t) + np.matmul((np.identity(len(theta)) - exp_kappa_t), theta)
+        z_t = np.dot(exp_kappa_t, x_t) + np.dot((np.identity(len(theta)) - exp_kappa_t), theta)
 
         return a0 + np.dot(b0, z_t)
 
@@ -113,8 +113,8 @@ class GaussianAffine(ts.TermStructure):
         x_t = kwargs['x_t']
 
         exp_yld = a_t + \
-                  np.dot(b_t, np.matmul(np.identity(len(theta)) - scipylin.expm(-kappa * fwd_time), theta)) + \
-                  np.dot(b_t, np.matmul(scipylin.expm(-kappa * fwd_time), x_t))
+                  np.dot(b_t, np.dot(np.identity(len(theta)) - scipylin.expm(-kappa * fwd_time), theta)) + \
+                  np.dot(b_t, np.dot(scipylin.expm(-kappa * fwd_time), x_t))
 
         return exp_yld
 
@@ -138,13 +138,13 @@ class GaussianAffine(ts.TermStructure):
         kappa = self.params.kappa
         sigma = self.params.sigma
 
-        exp_Kh_sigma = np.matmul(scipylin.expm(-kappa * dt), sigma)
+        exp_Kh_sigma = np.dot(scipylin.expm(-kappa * dt), sigma)
 
-        ker = np.matmul(exp_Kh_sigma, np.transpose(exp_Kh_sigma)) - np.matmul(sigma, np.transpose(sigma))
+        ker = np.dot(exp_Kh_sigma, exp_Kh_sigma.T) - np.dot(sigma, np.transpose(sigma))
 
         prefix = np.kron(kappa, np.identity(ndim_x)) + np.kron(np.identity(ndim_x), kappa)
 
-        vec_cov = -np.matmul(np.linalg.inv(prefix), ker.flatten('F'))
+        vec_cov = -np.dot(np.linalg.pinv(prefix), ker.flatten('F'))
 
         return np.reshape(vec_cov, (ndim_x, ndim_x))
 
@@ -177,9 +177,9 @@ if __name__ == "__main__":
                                              [0., 0.0021, 0.],
                                              [0., 0., 0.0062]]),
                           'lambda_a': np.array([-0.7828, -0.6960, -1.8420]),
-                          'lambda_b': np.array([[-0.1615, -0.8328, 0.2974],
-                                                [-0.2564, -0.9081, 0.2889],
-                                                [-1.2934, -1.0071, 0.4122]])}
+                          'lambda_b': np.array([[-70.2173913, -362.08695652, 129.30434783],
+                                                [-122.0952381, -432.42857143, 137.57142857],
+                                                [-208.61290323, -162.43548387, 66.48387097]])}
 
     term_struct_obj = GaussianAffine(**dict_params_survey)
     term_struct_obj.update_param(sigma=dict_params_survey['sigma'])
